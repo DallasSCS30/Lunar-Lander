@@ -1,52 +1,63 @@
 ##-------------------------------------------------------------------
 ## Lunar Lander 
 ## Dallas Spendelow
-## November 14, 2018
+## November 19, 2018
 ## A lunar lander game. 
 ##-------------------------------------------------------------------
 
 import pygame
 import random
 from settings import *
-import os
+from os import path
 vector = pygame.math.Vector2
+from math import *
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((50,75))
-        self.image.fill(GREEN)
+        self.image = pygame.transform.scale(playerImage, (50,50))
+        self.image.set_colorkey(WHITE)
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH/2, HEIGHT/2)
         self.position = vector(WIDTH/2, HEIGHT/2)
         self.velocity = vector(0,0)
-        self.acceleration = vector(0,GRAVITY)
         self.thrusting = False
         self.onGround = False
-        self.hitGround = False
         self.impactVelocity = 0
+        self.rotation = 0
+        self.acceleration = vector(0,GRAVITY)
+        self.thrust = vector(0,0)
+        self.acceleration = self.acceleration + self.thrust
+        self.thrustX = 0
+        self.thrustY = 0
 
-    def whenOnGround(self):
-        self.rect.bottom = HEIGHT-20
-        if self.impactVelocity > 100:
-            print("Crash!")
-            showGameOverScreen()
-        elif self.impactVelocity > 50:
-            print("Minor injuries.")
-        else:
-            print("Landed.")
-        
+    def rotate(self,speed):
+        self.rotation = (self.rotation + speed) % 360
+        print(self.rotation)
+        newImage = pygame.transform.rotate(self.image, self.rotation)
+        oldCenter = self.rect.center
+        self.image = newImage
+        self.rect = self.image.get_rect()
+        self.rect.center = oldCenter
+     
+    def rotateThrust(self):
+        self.thrustX = float(self.thrustX*cos(radians(self.rotation)) + self.thrustY*sin(radians(self.rotation)))
+        self.thrustY = float(-self.thrustX*sin(radians(self.rotation)) + self.thrustY*cos(radians(self.rotation)))
+        self.thrust = vector(self.thrustX,self.thrustY)
         
     def update(self):          
         
-        if self.thrusting:
-##            print("Engine firing.")   
-            self.acceleration = vector(0,GRAVITY-THRUST)
-        else:
-            self.acceleration = vector(0,GRAVITY)
-
-
-##        self.acceleration = vector(0,GRAVITY)
+        if self.onGround:
+            if self.impactVelocity > 50:
+                print("Crash")
+            elif self.impactVelocity > 20:
+                print("Minor injuries. Subtracted 100 points to repair.")
+            elif self.impactVelocity > 0:
+                print("Landed. Takeoff again.")
+        
+        
+        print(self.thrust)
+        self.acceleration = vector(0 + self.thrust[0],GRAVITY + self.thrust[1])    
         self.velocity += self.acceleration
         self.position += self.velocity + 0.5 * self.acceleration
         self.rect.midbottom = self.position
@@ -54,10 +65,13 @@ class Player(pygame.sprite.Sprite):
 class Ground(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((WIDTH,20))
-        self.image.fill(RED)
+        self.image = groundImage
+        self.image.set_colorkey(WHITE)
         self.rect = self.image.get_rect()
-        self.rect.center = (WIDTH/2, HEIGHT-10)            
+        self.rect.center = (WIDTH/2, HEIGHT-10)
+        
+
+    
 
 ## Initialize PyGame and make the empty window.
 
@@ -67,13 +81,24 @@ screen = pygame.display.set_mode((WIDTH,HEIGHT))
 pygame.display.set_caption("Lunar Lander")
 clock = pygame.time.Clock()
 
+directory = path.dirname(__file__)
+imageDirectory = path.join(directory, "image")
+playerImage = pygame.image.load(path.join(imageDirectory, "lander.png")).convert()
+groundImage = pygame.image.load(path.join(imageDirectory, "ground.png")).convert()
+
 allSprites = pygame.sprite.Group()
 
+
 player = Player()
+playerGroup = pygame.sprite.Group()
+playerGroup.add(player)
 allSprites.add(player)
 
 ground = Ground()
 allSprites.add(ground)
+
+groundGroup = pygame.sprite.Group()
+groundGroup.add(ground)
 
 
 
@@ -90,14 +115,29 @@ while running:
             running = False
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                player.thrusting = not player.thrusting         
+                player.thrusting = not player.thrusting
+                if player.thrusting:
+                    player.thrust = (0,-THRUST)
+                    print(player.thrust)
+            if event.key == pygame.K_LEFT:
+                player.rotate(ROTATION_SPEED)
+                player.thrust = player.rotateThrust()
+                print(player.thrust)
+            if event.key == pygame.K_RIGHT:
+                player.rotate(-ROTATION_SPEED)
+                player.thrust = player.rotateThrust()
+                print(player.thrust)
             
     ## Update
-    player.onGround = pygame.sprite.collide_rect(player, ground)
-    player.impactVelocity = player.velocity.y
-    while player.onGround:
-        player.whenOnGround()
+    hits = pygame.sprite.spritecollide(player, groundGroup, False)
+    if hits:
+        player.onGround = True
+        player.impactVelocity = player.velocity.y
+        player.position.y = hits[0].rect.top + 1
+        player.velocity.y = 0
+
         
+     
 
     allSprites.update()
     
