@@ -1,7 +1,7 @@
 ##-------------------------------------------------------------------
 ## Lunar Lander Settings
 ## Dallas Spendelow
-## November 14, 2018
+## November 19, 2018
 ## This file has settings for the Lunar Lander game.
 ##-------------------------------------------------------------------
 
@@ -19,4 +19,5 @@ BLUE = (0,0,255)
 
 ## Game settings
 GRAVITY = 1
-THRUST = 1.5
+THRUST = 1.1
+ROTATION_SPEED = 10
